@@ -24,7 +24,8 @@ func (p ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/a" {
 		// http.Get()，  是基于  NewRequest() 方法进行创建的
 		// 获取访跳转目标的页面信息
-		nearreq, _ := http.NewRequest(r.Method, "http://www.baidu.com", r.Body)
+
+		nearreq, _ := http.NewRequest(r.Method, "http://localhost:9001", r.Body)
 		nearresponse, _ := http.DefaultClient.Do(nearreq)
 		defer nearresponse.Body.Close()
 		// 读取响应信息
