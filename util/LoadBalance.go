@@ -4,22 +4,31 @@ import (
 	"fmt"
 	"hash/crc32"
 	"math/rand"
+	"sort"
 	"time"
 )
 
-// 使用随机数  实现  最简单的负载均衡
+type HttpServers []*HttpServer
 
+func (p HttpServers) Len() int           { return len(p) }
+func (p HttpServers) Less(i, j int) bool { return p[i].CWeight > p[j].CWeight }
+func (p HttpServers) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+
+// 使用随机数  实现  最简单的负载均衡
 type HttpServer struct { //  目标server 类
-	Host   string
-	Weight int
+	Host    string
+	Weight  int
+	CWeight int    //  当前权重
+	Status  string //   服务状态,  默认UP
 }
 
-func NewHttpServer(host string, weight int) *HttpServer {
-	return &HttpServer{Host: host, Weight: weight}
+func NewHttpServer(host string, weight int, status string) *HttpServer {
+	return &HttpServer{Host: host, Weight: weight, CWeight: weight, Status: status}
 }
 
 type LoadBalance struct { //  负载均衡类
-	Servers []*HttpServer
+	Servers  HttpServers
+	CurIndex int
 }
 
 // 初始化负载均衡
@@ -64,7 +73,7 @@ func (this *LoadBalance) SelectByWeigthRand2() *HttpServer {
 	}
 	rad := rand.Intn(sum) //  [)
 	for i, v := range sumList {
-		if rad < v {
+		if rad < v { //   逐一遍历 判断，
 			fmt.Printf("rad: %d, v: %d", rad, v)
 			return this.Servers[i]
 		}
@@ -73,14 +82,48 @@ func (this *LoadBalance) SelectByWeigthRand2() *HttpServer {
 	return this.Servers[0]
 }
 
+// 使用轮巡算法
+func (this *LoadBalance) RoundRobin() *HttpServer {
+	server := this.Servers[this.CurIndex]
+	this.CurIndex = (this.CurIndex + 1) % len(this.Servers)
+	return server
+}
+
+// 加权使用轮巡算法
+func (this *LoadBalance) RoundRobinWeight() *HttpServer {
+	server := this.Servers[ServerIndices[this.CurIndex]]
+	this.CurIndex = (this.CurIndex + 1) % len(ServerIndices)
+	return server
+}
+
+// 平滑加权使用轮巡算法
+func (this *LoadBalance) RoundRobinWeight3() *HttpServer {
+	for _, s := range this.Servers {
+		s.CWeight = s.CWeight + s.Weight
+	}
+	sort.Sort(this.Servers)
+	max := this.Servers[0] //  返回最大 作为命中服务
+	max.CWeight = max.CWeight - SumWeight
+
+	test := ""
+	for _, s := range this.Servers {
+		test += fmt.Sprintf("%d", s.CWeight)
+	}
+	fmt.Println(test)
+	return max //  返回代理服务
+}
+
 var ServerIndices []int //  存储表示各个代理服务的权重信息
 
 var LB *LoadBalance
+var SumWeight int
 
 func init() {
+
 	LB = NewLoadBalance()
-	LB.AddServer(NewHttpServer("http://localhost:9001", 5))
-	LB.AddServer(NewHttpServer("http://localhost:9002", 15))
+	LB.AddServer(NewHttpServer("http://localhost:9001", 5, "UP"))
+	LB.AddServer(NewHttpServer("http://localhost:9002", 15, "UP"))
+	LB.AddServer(NewHttpServer("http://localhost:9003", 15, "UP"))
 	// 将地址信息的权重转化为， 对应比列存储
 	for i, server := range LB.Servers {
 		if server.Weight > 0 {
@@ -88,7 +131,28 @@ func init() {
 				ServerIndices = append(ServerIndices, i)
 			}
 		}
-
+		// 计算权重总和
+		SumWeight += server.Weight
 	}
-	fmt.Println(ServerIndices)
+	// fmt.Println(ServerIndices)
+	checkServers(LB.Servers)
+}
+
+func checkServers(servers HttpServers) {
+	// 使用定时器
+	t := time.NewTicker(time.Second * 3)
+	check := NewHttpChecker(servers)
+	for {
+		select {
+		case <-t.C:
+			check.Check(time.Second * 2)
+			for _, s := range servers {
+				// 打印代理服务信息
+				fmt.Println(s.Host, s.Status)
+			}
+			fmt.Println("--------------------")
+
+		}
+	}
+
 }
