@@ -16,10 +16,11 @@ func (p HttpServers) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
 
 // 使用随机数  实现  最简单的负载均衡
 type HttpServer struct { //  目标server 类
-	Host    string
-	Weight  int
-	CWeight int    //  当前权重
-	Status  string //   服务状态,  默认UP
+	Host      string
+	Weight    int
+	CWeight   int    //  当前权重
+	Status    string //   服务状态,  默认UP
+	FailCount int    //  记录  失败的次数
 }
 
 func NewHttpServer(host string, weight int, status string) *HttpServer {
@@ -86,6 +87,9 @@ func (this *LoadBalance) SelectByWeigthRand2() *HttpServer {
 func (this *LoadBalance) RoundRobin() *HttpServer {
 	server := this.Servers[this.CurIndex]
 	this.CurIndex = (this.CurIndex + 1) % len(this.Servers)
+	if server.Status == "DOWN" {
+		return this.RoundRobin()
+	}
 	return server
 }
 
@@ -148,7 +152,7 @@ func checkServers(servers HttpServers) {
 			check.Check(time.Second * 2)
 			for _, s := range servers {
 				// 打印代理服务信息
-				fmt.Println(s.Host, s.Status)
+				fmt.Println(s.Host, s.Status, s.FailCount)
 			}
 			fmt.Println("--------------------")
 

@@ -45,8 +45,8 @@ func (p ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// url, _ := url.Parse(lb.SelectForRand().Host)  // 使用 随机算法
 	// url, _ := url.Parse(LB.SelectByIpHash(r.RemoteAddr).Host) //  使用 ip  hash  反向代理
 	// url, _ := url.Parse(LB.SelectByWeigthRand2().Host) //    加权算法改良
-	// url, _ := url.Parse(LB.RoundRobin().Host)       //   轮巡算法
-	url, _ := url.Parse(LB.RoundRobinWeight3().Host) //   加权轮巡算法
+	url, _ := url.Parse(LB.RoundRobin().Host) //   轮巡算法
+	// url, _ := url.Parse(LB.RoundRobinWeight3().Host) //   加权轮巡算法
 	// 设置反向代理
 	proxy := httputil.NewSingleHostReverseProxy(url)
 	proxy.ServeHTTP(w, r)

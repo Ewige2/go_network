@@ -7,10 +7,28 @@ import (
 
 type HttpChecker struct {
 	Servers HttpServers
+	FailMax int //  最大失败次数
 }
 
 func NewHttpChecker(servers HttpServers) *HttpChecker {
-	return &HttpChecker{Servers: servers}
+	return &HttpChecker{Servers: servers, FailMax: 6}
+}
+
+func (this *HttpChecker) Fail(server *HttpServer) {
+	if server.FailCount >= this.FailMax {
+		server.Status = "DOWN"
+	} else {
+		server.FailCount++
+	}
+}
+
+func (this *HttpChecker) Success(server *HttpServer) {
+	// 目前机制是计数器
+	if server.FailCount > 0 {
+		server.FailCount--
+	} else {
+		server.Status = "UP"
+	}
 }
 
 func (this *HttpChecker) Check(timeout time.Duration) {
@@ -23,14 +41,14 @@ func (this *HttpChecker) Check(timeout time.Duration) {
 		}
 
 		if err != nil { // 宕机了
-			server.Status = "DOWN"
+			this.Fail(server)
 			continue
 		}
 		// 其他情况判断
 		if resp.StatusCode >= 200 && resp.StatusCode < 400 {
-			server.Status = "UP"
+			this.Success(server)
 		} else {
-			server.Status = "DOWN"
+			this.Fail(server)
 		}
 	}
 
