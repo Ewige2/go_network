@@ -45,7 +45,8 @@ func (p ProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	lb := NewLoadBalance()
 	lb.AddServer(NewHttpServer("http://localhost:9001"))
 	lb.AddServer(NewHttpServer("http://localhost:9002"))
-	url, _ := url.Parse(lb.SelectForRand().Host)
+	// url, _ := url.Parse(lb.SelectForRand().Host)
+	url, _ := url.Parse(lb.SelectByIpHash(r.RemoteAddr).Host) //  使用 ip  hash  反向代理
 	// 设置反向代理
 	proxy := httputil.NewSingleHostReverseProxy(url)
 	proxy.ServeHTTP(w, r)

@@ -1,6 +1,7 @@
 package util
 
 import (
+	"hash/crc32"
 	"math/rand"
 	"time"
 )
@@ -33,5 +34,11 @@ func (this *LoadBalance) AddServer(server *HttpServer) {
 func (this *LoadBalance) SelectForRand() *HttpServer {
 	rand.Seed(time.Now().UnixNano())
 	index := rand.Intn(len(this.Servers))
+	return this.Servers[index]
+}
+
+// 使用ip   hash  进行 负载均衡
+func (this *LoadBalance) SelectByIpHash(ip string) *HttpServer {
+	index := int(crc32.ChecksumIEEE([]byte(ip))) % len(this.Servers)
 	return this.Servers[index]
 }
